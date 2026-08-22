@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { runScheduledMarketScan } from "../market/scheduledScan";
+import { registerMt5DemoBridge } from "../market/mt5Demo";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -36,6 +38,8 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  registerMt5DemoBridge(app);
+  app.post("/api/scheduled/market-scan", runScheduledMarketScan);
   // tRPC API
   app.use(
     "/api/trpc",

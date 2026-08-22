@@ -1,33 +1,90 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Input } from "@/components/ui/input";
+import { startLogin } from "@/const";
+import { trpc } from "@/lib/trpc";
+import type { BacktestResult, SignalAnalysis } from "@shared/market";
+import { Activity, AlertTriangle, Bell, CheckCircle2, ChevronLeft, CircleDollarSign, Clock3, Database, FlaskConical, LineChart, Link2, Loader2, LockKeyhole, Plus, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, TerminalSquare, WalletCards } from "lucide-react";
+import { FormEvent, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+type Mt5AnalysisResult = { symbol: string; bars: number; signal: SignalAnalysis; backtest: BacktestResult };
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  const utils = trpc.useUtils();
+  const [symbol, setSymbol] = useState("");
+  const [emailAlerts, setEmailAlerts] = useState(false);
+  const [analysis, setAnalysis] = useState<Mt5AnalysisResult | null>(null);
+  const [riskDraft, setRiskDraft] = useState({ accountEquity: 10_000, riskPerTradePercent: 1, maxPositionPercent: 20, stopAtrMultiplier: 1.5, rewardRiskRatio: 2, alertOnRiskBreach: true });
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const assets = trpc.market.assets.list.useQuery(undefined, { enabled: isAuthenticated });
+  const risk = trpc.market.risk.get.useQuery(undefined, { enabled: isAuthenticated, staleTime: 30_000 });
+  const mt5 = trpc.mt5.status.useQuery(undefined, { enabled: isAuthenticated, retry: false, refetchInterval: 30_000 });
+  const schedule = trpc.schedules.get.useQuery(undefined, { enabled: isAuthenticated });
+  const saveAsset = trpc.market.assets.save.useMutation({
+    onSuccess: async () => { await utils.market.assets.list.invalidate(); setSymbol(""); toast.success("تمت إضافة الأصل إلى قائمة المتابعة."); },
+    onError: error => toast.error(error.message),
+  });
+  const saveRisk = trpc.market.risk.save.useMutation({ onSuccess: () => toast.success("تم حفظ حدود إدارة المخاطر."), onError: error => toast.error(error.message) });
+  const configureSchedule = trpc.schedules.configure.useMutation({
+    onSuccess: async result => { await utils.schedules.get.invalidate(); setEmailAlerts(result?.emailAlertsEnabled ?? false); toast.success(result?.enabled ? "تم تفعيل الفحص الدوري." : "تم إيقاف الفحص الدوري."); },
+    onError: error => toast.error(error.message),
+  });
+  const analyzeMt5 = trpc.mt5.analyze.useMutation({
+    onSuccess: result => { setAnalysis(result); toast.success("اكتمل تحليل بيانات MT5 Demo المتاحة."); },
+    onError: error => toast.error(error.message),
+  });
+
+  const effectiveRisk = useMemo(() => risk.data ?? riskDraft, [risk.data, riskDraft]);
+  const bridgeReady = mt5.data?.configured === true;
+  const connection = mt5.data?.connection;
+  const mt5Connected = Boolean(connection);
+  const connectionLabel = !isAuthenticated ? "سجّل الدخول لبدء الإعداد" : mt5Connected ? "MT5 Demo متصل" : bridgeReady ? "بانتظار مزامنة MT5 Demo" : "جسر MT5 غير مهيأ";
+
+  function addAsset(event: FormEvent) {
+    event.preventDefault();
+    if (!symbol.trim()) return;
+    saveAsset.mutate({ symbol, assetClass: "equity" });
+  }
+
+  function requestAnalysis(symbolToAnalyze: string) {
+    if (!mt5Connected) {
+      toast.message(`لن يُحلل ${symbolToAnalyze} قبل وصول أول مزامنة من MT5 Demo. لا تستخدم اللوحة بديلاً عن بيانات السوق الفعلية.`);
+      return;
+    }
+    analyzeMt5.mutate({ symbol: symbolToAnalyze, timeframe: "D1" });
+  }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
+    <main dir="rtl" className="min-h-screen overflow-hidden pb-14">
+      <div className="grid-fade pointer-events-none absolute inset-x-0 top-0 h-[520px]" />
+      <header className="relative mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-5 lg:px-8">
+        <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl border border-emerald-200/20 bg-emerald-300/10 text-emerald-200 shadow-[0_0_36px_rgba(71,214,174,.16)]"><FlaskConical size={21} /></div><div><p className="text-sm font-semibold tracking-tight text-white">مختبر التداول الذكي</p><p className="text-xs text-slate-400">MT5 Demo · Equiti Jordan · مراجعة قبل القرار</p></div></div>
+        <div className="hidden items-center gap-2 md:flex"><span className="rounded-full border border-slate-300/10 bg-slate-300/5 px-3 py-1.5 text-xs text-slate-300"><LockKeyhole className="ml-1 inline h-3.5 w-3.5" />Demo فقط</span><span className="rounded-full border border-amber-200/15 bg-amber-200/5 px-3 py-1.5 text-xs text-amber-100"><AlertTriangle className="ml-1 inline h-3.5 w-3.5" />لا ضمان للعوائد</span></div>
+        {!loading && !isAuthenticated ? <Button onClick={startLogin} className="rounded-xl bg-emerald-300 px-5 text-[#081327] hover:bg-emerald-200">دخول المساحة <ChevronLeft className="mr-1 h-4 w-4" /></Button> : <div className="flex items-center gap-2 rounded-xl border border-slate-200/10 bg-slate-200/5 px-3 py-2 text-xs text-slate-200"><span className={`h-2 w-2 rounded-full ${mt5Connected ? "bg-emerald-300" : "bg-amber-300"}`} />{connectionLabel}</div>}
+      </header>
+
+      <section className="relative mx-auto max-w-[1440px] px-5 pt-7 lg:px-8">
+        <div className="grid gap-6 xl:grid-cols-[1.45fr_.55fr]">
+          <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10 p-6 lg:p-8"><div className="flex flex-col justify-between gap-6 md:flex-row md:items-start"><div className="max-w-2xl"><div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/5 px-3 py-1.5 text-xs text-emerald-100"><Sparkles size={14} />محاكاة بحدود قابلة للمراجعة</div><h1 className="text-3xl font-bold leading-tight tracking-tight text-white md:text-4xl">افهم الإشارة والمخاطر،<br /><span className="text-emerald-200">ثم اختبر الفكرة في MT5 Demo.</span></h1><p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">لا تدّعي اللوحة نسبة نجاح أو عائداً. تعرض فقط قواعد قابلة للفحص، وحدود المخاطرة، وحالة اتصال حساب MT5 التجريبي لدى Equiti Jordan.</p></div><div className="min-w-52 rounded-2xl border border-white/10 bg-[#071225]/55 p-4"><p className="text-xs text-slate-400">وضع التشغيل</p><div className="mt-2 flex items-center gap-2 text-sm font-semibold text-white"><span className={`h-2.5 w-2.5 rounded-full ${mt5Connected ? "bg-emerald-300" : "bg-amber-300"}`} />MT5 Demo فقط</div><p className="mt-3 text-xs leading-5 text-slate-400">لا يوجد مسار للتداول الحي أو الإيداع أو إرسال أوامر تلقائية.</p></div></div><div className="mt-8 grid gap-3 sm:grid-cols-3">{[{ icon: ScanLine, label: "الإشارات", value: "بانتظار التاريخ", detail: "لا تظهر قبل وصول بيانات حقيقية" }, { icon: ShieldCheck, label: "حد الصفقة", value: `${effectiveRisk.riskPerTradePercent}%`, detail: "من قيمة المحفظة الافتراضية" }, { icon: Database, label: "بيانات MT5", value: mt5Connected ? "متصلة" : "غير متصلة", detail: mt5Connected ? "آخر حالة من الحساب التجريبي" : "لا توجد بدائل مصطنعة" }].map(item => <div key={item.label} className="lift rounded-2xl border border-white/8 bg-white/[.035] p-4"><div className="flex items-center justify-between"><span className="text-xs text-slate-400">{item.label}</span><item.icon className="h-4 w-4 text-emerald-200" /></div><p className="metric-number mt-4 text-lg font-semibold text-white">{item.value}</p><p className="mt-1 text-xs text-slate-400">{item.detail}</p></div>)}</div></div>
+          <aside className="glass-card rounded-[1.75rem] border border-white/10 p-6"><div className="flex items-center justify-between"><div><p className="text-xs text-slate-400">بوابة الحماية</p><h2 className="mt-1 text-lg font-semibold text-white">قبل إنشاء الإشارة</h2></div><ShieldCheck className="h-8 w-8 text-emerald-200" /></div><div className="mt-5 space-y-3 text-sm">{["لا تداول حي أو إيداع", "لا إشارة عند نقص البيانات", "اختبار تاريخي منفصل عن التوقع", "حجم مركز محكوم بحد المخاطرة"].map((text, index) => <div key={text} className="flex items-center gap-3 rounded-xl bg-white/[.035] px-3 py-2.5"><CheckCircle2 className={`h-4 w-4 ${index === 1 && !mt5Connected ? "text-amber-200" : "text-emerald-200"}`} /><span className="text-slate-200">{text}</span></div>)}</div><p className="mt-5 border-t border-white/8 pt-4 text-xs leading-5 text-slate-400">الإشارات مخصصة للمراجعة والتحليل، وليست نصيحة مالية شخصية أو وعداً بالأداء.</p></aside>
+        </div>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
+          <section className="glass-card rounded-[1.75rem] border border-white/10 p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-slate-400">قائمة المتابعة</p><h2 className="mt-1 text-xl font-semibold text-white">أصولك تحت العدسة</h2></div><form onSubmit={addAsset} className="flex w-full gap-2 sm:w-auto"><Input value={symbol} onChange={event => setSymbol(event.target.value.toUpperCase())} placeholder="مثال: XAUUSD" className="h-10 border-white/10 bg-[#071225]/65 text-left font-mono text-white placeholder:text-slate-500 sm:w-36" dir="ltr" /><Button disabled={!isAuthenticated || saveAsset.isPending} type="submit" variant="secondary" className="h-10 rounded-xl bg-white/10 text-white hover:bg-white/15"><Plus className="ml-1 h-4 w-4" />إضافة</Button></form></div><div className="mt-5 overflow-hidden rounded-2xl border border-white/8">{assets.isLoading ? <div className="flex h-40 items-center justify-center text-sm text-slate-400"><Loader2 className="ml-2 h-4 w-4 animate-spin" />يتم تجهيز قائمتك…</div> : assets.data && assets.data.length > 0 ? <div className="divide-y divide-white/8">{assets.data.map(asset => <div key={asset.id} className="flex items-center justify-between gap-4 p-4"><div><div className="flex items-center gap-2"><span dir="ltr" className="metric-number font-semibold text-white">{asset.symbol}</span><span className="rounded-md bg-white/8 px-2 py-0.5 text-[10px] text-slate-300">{asset.assetClass}</span></div><p className="mt-1 text-xs text-slate-400">{asset.label || "أصل مراقَب — بانتظار بيانات MT5 Demo"}</p></div><Button onClick={() => requestAnalysis(asset.symbol)} className="rounded-xl bg-emerald-300 text-[#081327] hover:bg-emerald-200"><ScanLine className="ml-1 h-4 w-4" />الحالة</Button></div>)}</div> : <div className="flex min-h-44 flex-col items-center justify-center px-5 text-center"><LineChart className="h-7 w-7 text-slate-500" /><p className="mt-3 text-sm font-medium text-slate-200">لا توجد أصول مراقَبة بعد</p><p className="mt-1 max-w-sm text-xs leading-5 text-slate-400">أضف رموزاً كما تظهر في Equiti MT5، مثل XAUUSD أو EURUSD. لن تُختلق بيانات أو إشارة قبل اتصال MT5 Demo.</p></div>}</div></section>
+          <section className="glass-card rounded-[1.75rem] border border-white/10 p-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs text-slate-400">إعداد المحفظة الافتراضية</p><h2 className="mt-1 text-xl font-semibold text-white">حدود المخاطرة</h2></div><SlidersHorizontal className="h-5 w-5 text-emerald-200" /></div><div className="mt-5 grid grid-cols-2 gap-3">{[{ key: "accountEquity", label: "قيمة المحفظة", suffix: "$", min: 100, step: 100 }, { key: "riskPerTradePercent", label: "خطر الصفقة", suffix: "%", min: .1, step: .1 }, { key: "maxPositionPercent", label: "حد المركز", suffix: "%", min: 1, step: 1 }, { key: "stopAtrMultiplier", label: "وقف الخسارة", suffix: "× ATR", min: .5, step: .1 }].map(field => <label key={field.key} className="rounded-xl border border-white/8 bg-white/[.025] p-3"><span className="text-[11px] text-slate-400">{field.label}</span><div className="mt-1 flex items-baseline gap-1"><input type="number" min={field.min} step={field.step} value={riskDraft[field.key as keyof typeof riskDraft] as number} onChange={event => setRiskDraft(current => ({ ...current, [field.key]: Number(event.target.value) }))} className="metric-number w-full bg-transparent text-lg font-semibold text-white outline-none" /><span className="whitespace-nowrap text-[10px] text-slate-500">{field.suffix}</span></div></label>)}</div><div className="mt-4 flex items-center justify-between rounded-xl border border-amber-200/10 bg-amber-200/[.035] px-3 py-3"><p className="text-xs leading-5 text-amber-100">توقف الحسبة عند حدودك، ولا تحوّلها إلى قرار استثماري تلقائي.</p><Button onClick={() => saveRisk.mutate(riskDraft)} disabled={!isAuthenticated || saveRisk.isPending} variant="outline" className="border-amber-200/20 bg-transparent text-amber-100 hover:bg-amber-200/10">حفظ</Button></div></section>
+        </div>
+
+        <section className="mt-6 grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
+          <div className="glass-card rounded-[1.75rem] border border-white/10 p-6"><div className="flex items-center justify-between"><div><p className="text-xs text-slate-400">اتصال MT5 Demo</p><h2 className="mt-1 text-xl font-semibold text-white">حالة الحساب التجريبي</h2></div><TerminalSquare className="h-5 w-5 text-emerald-200" /></div>{mt5.isLoading ? <div className="flex min-h-52 items-center justify-center text-sm text-slate-400"><Loader2 className="ml-2 h-4 w-4 animate-spin" />يتم فحص الاتصال…</div> : connection ? <div className="mt-5 grid grid-cols-2 gap-3">{[{ label: "الوسيط", value: connection.broker }, { label: "خادم Demo", value: connection.server }, { label: "قيمة الحساب", value: `$${connection.equity}` }, { label: "الرصيد", value: `$${connection.balance}` }, { label: "الرافعة", value: `1:${connection.leverage}` }, { label: "آخر مزامنة", value: new Intl.DateTimeFormat("ar", { timeStyle: "short", dateStyle: "medium" }).format(new Date(connection.lastSyncAtMs)) }].map(metric => <div key={metric.label} className="rounded-xl border border-white/8 bg-white/[.025] p-3"><p className="text-[11px] text-slate-400">{metric.label}</p><p dir={metric.label === "الوسيط" || metric.label === "خادم Demo" ? "ltr" : undefined} className="metric-number mt-2 truncate text-sm font-semibold text-white">{metric.value}</p></div>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-white/[.018] p-6 text-center"><Link2 className="mx-auto h-8 w-8 text-slate-500" /><p className="mt-3 text-sm font-medium text-slate-200">لا توجد مزامنة من MT5 Demo بعد</p><p className="mt-1 text-xs leading-5 text-slate-400">بعد إنشاء حساب Equiti Demo، يحتاج جسر MT5 محلي آمن لإرسال ملخص الحساب إلى هذه اللوحة. لا تُخزن كلمة مرور MT5 هنا.</p></div>}</div>
+          <div className="glass-card rounded-[1.75rem] border border-white/10 p-6"><div className="flex items-center justify-between"><div><p className="text-xs text-slate-400">الإشارات والاختبار</p><h2 className="mt-1 text-xl font-semibold text-white">لا صندوق أسود ولا أرقام مصطنعة</h2></div><Activity className="h-5 w-5 text-emerald-200" /></div><div className="mt-5 flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[.018] px-6 text-center"><ScanLine className="h-8 w-8 text-slate-500" /><p className="mt-3 text-sm font-medium text-slate-200">بانتظار تاريخ أسعار من MT5 Demo</p><p className="mt-1 max-w-lg text-xs leading-6 text-slate-400">عند وصول عدد كافٍ من الشموع، ستعرض اللوحة سبب الإشارة، اتفاق المؤشرات، حجم المركز ووقف الخسارة، واختباراً تاريخياً يفصل النتائج السابقة عن التوقعات. لا تظهر أي نتيجة قبل ذلك.</p></div></div>
+        </section>
+
+        {analysis ? <section className="mt-6 glass-card rounded-[1.75rem] border border-white/10 p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-slate-400">آخر تحليل MT5 Demo</p><h2 dir="ltr" className="metric-number mt-1 text-xl font-semibold text-white">{analysis.symbol}</h2></div><span className="rounded-full border border-emerald-300/15 bg-emerald-300/5 px-3 py-1 text-xs text-emerald-100">{analysis.signal.confidenceLabel}</span></div><div className="mt-5 grid gap-3 sm:grid-cols-4">{[{ label: "اتجاه الإشارة", value: analysis.signal.direction === "bullish" ? "ميل صاعد" : analysis.signal.direction === "bearish" ? "ميل هابط" : "محايد/غير كافٍ" }, { label: "قوة الاتفاق", value: `${analysis.signal.strength}/80` }, { label: "تغطية البيانات", value: `${analysis.signal.dataCoverage}%` }, { label: "عدد صفقات الاختبار", value: String(analysis.backtest.tradeCount) }].map(metric => <div key={metric.label} className="rounded-xl border border-white/8 bg-white/[.025] p-3"><p className="text-[11px] text-slate-400">{metric.label}</p><p className="metric-number mt-2 text-sm font-semibold text-white">{metric.value}</p></div>)}</div><div className="mt-5 grid gap-5 lg:grid-cols-2"><div><h3 className="text-sm font-semibold text-slate-100">لماذا ظهرت القراءة؟</h3><ul className="mt-3 space-y-2">{analysis.signal.reasons.map(reason => <li key={reason} className="flex gap-2 text-xs leading-5 text-slate-300"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-200" />{reason}</li>)}</ul></div><div><h3 className="text-sm font-semibold text-slate-100">حدود النموذج</h3><ul className="mt-3 space-y-2">{analysis.signal.limitations.map(limitation => <li key={limitation} className="flex gap-2 text-xs leading-5 text-slate-300"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" />{limitation}</li>)}</ul></div></div></section> : null}
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-3"><div className="glass-card rounded-[1.75rem] border border-white/10 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-300/10 text-emerald-200"><WalletCards className="h-5 w-5" /></div><div><h3 className="font-semibold text-white">Equiti MT5 Demo</h3><p className="text-xs text-slate-400">الاختيار التجريبي الحالي</p></div></div><p className="mt-4 text-xs leading-5 text-slate-400">تربط اللوحة بحساب Demo فقط. لا تُطلب بيانات بطاقة أو إيداع لإنشاء التجربة، ولا يوجد إعداد للتداول الحي داخل الموقع.</p><p className={`mt-4 rounded-xl border border-white/8 bg-white/[.025] px-3 py-2 text-xs ${mt5Connected ? "text-emerald-100" : "text-amber-100"}`}>{mt5Connected ? "آخر مزامنة وصلت من الحساب التجريبي" : "بانتظار إكمال حساب Equiti Demo وجسر MT5"}</p></div><div className="glass-card rounded-[1.75rem] border border-white/10 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-300/10 text-blue-200"><Bell className="h-5 w-5" /></div><div><h3 className="font-semibold text-white">تنبيهات البريد</h3><p className="text-xs text-slate-400">اختيارية وقابلة للتعطيل</p></div></div><p className="mt-4 text-xs leading-5 text-slate-400">تصل عند اكتمال التحليل أو ظهور إشارة أو تحذير مخاطر، إذا تم ضبط موفر البريد من الإعدادات الآمنة.</p><label className="mt-4 flex items-center justify-between rounded-xl border border-white/8 bg-white/[.025] px-3 py-2 text-xs text-slate-300"><span>استقبال التنبيهات البريدية</span><input checked={emailAlerts || Boolean(schedule.data?.emailAlertsEnabled)} onChange={event => setEmailAlerts(event.target.checked)} type="checkbox" className="h-4 w-4 accent-emerald-300" /></label></div><div className="glass-card rounded-[1.75rem] border border-white/10 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-300/10 text-violet-200"><CircleDollarSign className="h-5 w-5" /></div><div><h3 className="font-semibold text-white">المسح الدوري</h3><p className="text-xs text-slate-400">بعد النشر فقط · UTC</p></div></div><p className="mt-4 text-xs leading-5 text-slate-400">الجدول الافتراضي: 09:00 صباحاً في أيام العمل. يظل متوقفاً حتى تفعّله صراحة بعد النشر.</p><Button onClick={() => configureSchedule.mutate({ enabled: !schedule.data?.enabled, cronExpression: schedule.data?.cronExpression || "0 0 9 * * 1-5", emailAlertsEnabled: emailAlerts || Boolean(schedule.data?.emailAlertsEnabled) })} disabled={!isAuthenticated || configureSchedule.isPending} variant="outline" className="mt-4 w-full border-violet-200/20 bg-violet-200/[.035] text-violet-100 hover:bg-violet-200/10">{configureSchedule.isPending ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Clock3 className="ml-2 h-4 w-4" />}{schedule.data?.enabled ? "إيقاف الفحص الدوري" : "تفعيل الفحص بعد النشر"}</Button></div></section>
+      </section>
+    </main>
   );
 }
