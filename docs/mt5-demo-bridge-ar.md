@@ -24,7 +24,7 @@ x-mt5-demo-token: قيمة MT5_DEMO_BRIDGE_TOKEN
 {
   "broker": "Equiti Jordan",
   "environment": "demo",
-  "server": "اسم-خادم-Equiti-Demo",
+  "server": "EquitiGroupLtd-Demo Central.Europe.01",
   "accountLogin": "رقم_حساب_تجريبي",
   "equity": 10000.00,
   "balance": 10000.00,
@@ -52,6 +52,7 @@ x-mt5-demo-token: قيمة MT5_DEMO_BRIDGE_TOKEN
 | --- | --- |
 | `environment` | يجب أن تكون `demo`؛ يرفض النظام `live` بالكامل. |
 | `broker` | يجب أن تكون `Equiti Jordan` ضمن هذا الإصدار. |
+| `server` | يجب أن يكون `EquitiGroupLtd-Demo Central.Europe.01`؛ يرفض الجسر أي خادم آخر. |
 | `accountLogin` | رقم الحساب فقط، وليس كلمة المرور. |
 | `bars` | يدعم M15 وH1 وH4 وD1؛ يرفض شموع OHLC غير المتسقة. |
 | `positions` | للعرض والمراجعة فقط؛ لا يستخدم لإصدار أوامر. |

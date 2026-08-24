@@ -4,7 +4,7 @@ import { parseMt5DemoPayload } from "./mt5Demo";
 const basePayload = {
   broker: "Equiti Jordan",
   environment: "demo",
-  server: "Equiti-Demo",
+  server: "EquitiGroupLtd-Demo Central.Europe.01",
   accountLogin: "12345678",
   equity: 10_000,
   balance: 10_000,
@@ -22,6 +22,10 @@ describe("MT5 Demo bridge payload", () => {
   it("rejects a live environment or non-numeric account login", () => {
     expect(() => parseMt5DemoPayload({ ...basePayload, environment: "live" })).toThrow();
     expect(() => parseMt5DemoPayload({ ...basePayload, accountLogin: "live-account" })).toThrow();
+  });
+
+  it("rejects payloads from an unapproved MT5 server", () => {
+    expect(() => parseMt5DemoPayload({ ...basePayload, server: "OtherBroker-Demo" })).toThrow();
   });
 
   it("rejects inconsistent OHLC price bars", () => {

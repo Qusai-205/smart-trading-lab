@@ -15,7 +15,7 @@
 
 ## إعداد Equiti MT5 Demo
 
-ابدأ بحساب **Equiti Jordan Demo** فقط، ثم اختر منصة MT5 من بوابة الوسيط. تذكر Equiti أن حسابها التجريبي مجاني ولا يحتاج إلى إيداع أو تفاصيل مصرفية، ويستخدم أموالاً افتراضية مع بيانات سوق حية؛ وهذا لا يجعله بديلاً عن التنفيذ أو السيولة الفعلية. [1] لا ترسل كلمة مرورك أو أي معلومات شخصية في المحادثة أو إلى لوحة الموقع.
+ابدأ بحساب **Equiti Jordan Demo** فقط، ثم اختر منصة MT5 من تطبيق MetaTrader 5 أو بوابة الوسيط. حساب Demo لا يحتاج إلى إيداع أو تفاصيل مصرفية، لكنه ليس بديلاً عن التنفيذ أو السيولة الفعلية. [1] لا ترسل كلمة مرورك أو أي معلومات شخصية في المحادثة أو إلى لوحة الموقع.
 
 بعد إكمال التسجيل، تُشغّل طرفية MT5 على جهازك المحلي أو بيئة تشغيل موثوقة تخصك. توضح وثائق MQL5 أن تكامل Python الرسمي يتصل بطرفية MetaTrader 5 ويتيح دوال قراءة الحساب والشموع والمراكز، وليس واجهة ويب موحدة جاهزة للتشغيل داخل الموقع. [2]
 
@@ -51,7 +51,7 @@
 
 ## المراجع
 
-[1] [Equiti Jordan — Demo Account](https://www.equiti.com/jo-en/accounts/demo-account/)
+[1] [MetaTrader 5 — Demo Account Opening](https://www.metatrader5.com/en/mobile-trading/android/help/settings_accounts/account_open)
 
 [2] [MQL5 — Python Integration](https://www.mql5.com/en/docs/python_metatrader5)
 
