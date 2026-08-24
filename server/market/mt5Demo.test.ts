@@ -28,6 +28,10 @@ describe("MT5 Demo bridge payload", () => {
     expect(() => parseMt5DemoPayload({ ...basePayload, server: "OtherBroker-Demo" })).toThrow();
   });
 
+  it("accepts the abbreviated Equiti demo server label shown by desktop MT5", () => {
+    expect(parseMt5DemoPayload({ ...basePayload, server: "EquitiGroupLtd-Demo" }).server).toBe("EquitiGroupLtd-Demo");
+  });
+
   it("rejects inconsistent OHLC price bars", () => {
     expect(() => parseMt5DemoPayload({ ...basePayload, bars: [{ symbol: "XAUUSD", timeframe: "D1", timestamp: Date.now(), open: 10, high: 9, low: 8, close: 9 }] })).toThrow("غير متسقة");
   });

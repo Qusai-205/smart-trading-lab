@@ -11,7 +11,7 @@ input ENUM_TIMEFRAMES Timeframe = PERIOD_D1;
 input int BarsToExport = 120;
 input int SyncEverySeconds = 300;
 
-const string REQUIRED_SERVER = "EquitiGroupLtd-Demo Central.Europe.01";
+const string REQUIRED_SERVER_PREFIX = "EquitiGroupLtd-Demo";
 
 int OnInit()
 {
@@ -20,9 +20,9 @@ int OnInit()
       Print("This bridge only accepts a MetaTrader demo account.");
       return(INIT_FAILED);
    }
-   if(AccountInfoString(ACCOUNT_SERVER) != REQUIRED_SERVER)
+   if(StringFind(AccountInfoString(ACCOUNT_SERVER), REQUIRED_SERVER_PREFIX) != 0)
    {
-      Print("Unexpected server. This bridge only accepts: ", REQUIRED_SERVER);
+      Print("Unexpected server. This bridge only accepts an Equiti demo server starting with: ", REQUIRED_SERVER_PREFIX);
       return(INIT_FAILED);
    }
    if(StringLen(BridgeToken) < 32 || StringFind(DashboardUrl, "YOUR-PUBLISHED-DOMAIN") >= 0)

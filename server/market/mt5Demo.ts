@@ -7,7 +7,7 @@ const MT5_DEMO_BRIDGE_TOKEN = () => process.env.MT5_DEMO_BRIDGE_TOKEN?.trim() ??
 const mt5DemoPayloadSchema = z.object({
   broker: z.literal("Equiti Jordan"),
   environment: z.literal("demo"),
-  server: z.literal("EquitiGroupLtd-Demo Central.Europe.01"),
+  server: z.string().trim().regex(/^EquitiGroupLtd-Demo(?:[ .-].*)?$/, "يجب أن يكون الخادم تابعاً لـ EquitiGroupLtd-Demo."),
   accountLogin: z.string().trim().regex(/^\d{4,20}$/),
   equity: z.number().finite().nonnegative(),
   balance: z.number().finite().nonnegative(),
